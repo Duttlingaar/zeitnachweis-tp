@@ -686,7 +686,7 @@ async function generatePDF(month) {
     doc.text(empfPlzort,  ML, y2+10.5);
 
     // Info block right side
-    const infoLeft = ML + CW * 0.42;
+    const infoLeft = ML + CW * 0.55;
     const infoRight = ML + CW;
     const infoLines = [
       [`${PLZORT.split(' ').slice(1).join(' ')}, den`, datumHeute],
@@ -789,7 +789,7 @@ async function generatePDF(month) {
 
     doc.text(`MwSt 0,00%`, sumLeft, y2);
     doc.setLineWidth(0.3);
-    doc.line(sumLeft + 32, y2+0.6, sumRight, y2+0.6); // underline the dash
+    doc.line(sumLeft + 32, y2+0.6, sumRight, y2+0.6);
     doc.text('- €', sumRight, y2, { align: 'right' });
     y2 += 8;
 
