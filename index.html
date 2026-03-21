@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Bauzeit" />
+  <meta name="theme-color" content="#1a1a1a" />
+  <title>Bauzeit Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f5f3ef;
+      --surface: #ffffff;
+      --surface2: #eeece8;
+      --border: rgba(0,0,0,0.1);
+      --border-strong: rgba(0,0,0,0.2);
+      --text: #1a1a1a;
+      --text-muted: #6b6860;
+      --text-faint: #a09d97;
+      --accent: #1a1a1a;
+      --accent-text: #ffffff;
+      --blue-bg: #e8f0fb;
+      --blue-text: #1a4fa0;
+      --green-bg: #e6f4e6;
+      --green-text: #1e6b1e;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --tab-h: 60px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #161614;
+        --surface: #1f1f1c;
+        --surface2: #2a2a26;
+        --border: rgba(255,255,255,0.08);
+        --border-strong: rgba(255,255,255,0.15);
+        --text: #f0ede8;
+        --text-muted: #8a877f;
+        --text-faint: #555350;
+        --accent: #f0ede8;
+        --accent-text: #1a1a1a;
+        --blue-bg: #1a2a45;
+        --blue-text: #7aabf0;
+        --green-bg: #1a2e1a;
+        --green-text: #6abf6a;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); overflow: hidden; }
+
+    /* Layout */
+    #app { display: flex; flex-direction: column; height: 100dvh; max-width: 600px; margin: 0 auto; }
+    .header {
+      padding: 16px 20px 12px;
+      padding-top: calc(16px + env(safe-area-inset-top, 0px));
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+    .header .date { font-size: 13px; color: var(--text-muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px 16px;
+      padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 24px);
+    }
+
+    /* Bottom tab bar */
+    .tabbar {
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      height: calc(var(--tab-h) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; border: none; background: none; cursor: pointer; color: var(--text-faint);
+      font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; padding: 8px 0;
+      transition: color 0.15s;
+    }
+    .tab-btn.active { color: var(--text); }
+    .tab-btn svg { width: 22px; height: 22px; stroke-width: 1.8; }
+    .tab-icon-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--text); margin: 0 auto;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .tab-btn.active .tab-icon-dot { opacity: 1; }
+
+    /* Sections */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Form elements */
+    .form-group { margin-bottom: 14px; position: relative; }
+    .form-label {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 6px; display: block;
+    }
+    input[type="text"], input[type="number"], input[type="date"], select {
+      width: 100%; padding: 14px 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 16px;
+      appearance: none; -webkit-appearance: none;
+      outline: none; transition: border-color 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--border-strong); }
+    input::placeholder { color: var(--text-faint); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .btn-save {
+      width: 100%; padding: 16px; background: var(--accent); color: var(--accent-text);
+      border: none; border-radius: var(--radius); font-family: 'DM Sans', sans-serif;
+      font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 6px;
+      letter-spacing: -0.2px; transition: opacity 0.15s; active:opacity: 0.8;
+    }
+    .btn-save:active { opacity: 0.75; }
+
+    /* Autocomplete */
+    .ac-list {
+      position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200;
+      background: var(--surface); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm); overflow: hidden; display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .ac-item {
+      padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:active { background: var(--surface2); }
+    .ac-name { font-size: 15px; font-weight: 500; }
+    .ac-komm { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+    .autofill-badge {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; padding: 3px 8px; border-radius: 20px;
+      background: var(--blue-bg); color: var(--blue-text); pointer-events: none; display: none;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+    }
+    .card-date { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+    .card-baustelle { font-size: 16px; font-weight: 600; }
+    .card-komm { font-size: 13px; color: var(--text-muted); font-family: 'DM Mono', monospace; margin-bottom: 10px; margin-top: 1px; }
+    .card-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill {
+      font-size: 12px; padding: 4px 10px; border-radius: 20px;
+      background: var(--surface2); color: var(--text-muted);
+      font-weight: 500;
+    }
+    .pill-h { background: var(--blue-bg); color: var(--blue-text); }
+    .pill-k { background: var(--green-bg); color: var(--green-text); }
+    .card-delete {
+      float: right; background: none; border: none; cursor: pointer;
+      color: var(--text-faint); font-size: 18px; line-height: 1; padding: 0 0 4px 8px;
+    }
+
+    /* Summary metrics */
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .metric {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+    }
+    .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+    .metric-value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; margin-top: 4px; }
+    .metric-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* Month selector */
+    .month-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .month-row label { font-size: 13px; color: var(--text-muted); white-space: nowrap; font-weight: 500; }
+    .month-row select { flex: 1; padding: 10px 14px; font-size: 14px; }
+
+    /* Export */
+    .export-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 12px;
+    }
+    .export-card h3 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+    .export-card p { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; }
+    .btn-dl {
+      width: 100%; padding: 14px; background: var(--accent); color: var(--accent-text);
+      border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .btn-dl:active { opacity: 0.75; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-faint); font-size: 15px; }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* Section title */
+    .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: calc(var(--tab-h) + var(--safe-bottom) + 16px);
+      left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg);
+      padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: 500;
+      opacity: 0; transition: opacity 0.25s; pointer-events: none; white-space: nowrap; z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Divider */
+    .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <h1>Bauzeit Tracker</h1>
+    <div class="date" id="header-date"></div>
+  </div>
+
+  <div class="content">
+
+    <!-- EINTRAG -->
+    <div id="sec-eintrag" class="section active">
+      <div class="form-group">
+        <label class="form-label">Datum</label>
+        <input type="date" id="datum" />
+      </div>
+
+      <div class="form-group" id="baustelle-group">
+        <label class="form-label">Baustelle</label>
+        <input type="text" id="baustelle" placeholder="z.B. Muster GmbH, Stuttgart"
+          autocomplete="off" autocorrect="off" spellcheck="false"
+          oninput="onBaustelleInput()" onblur="hideSuggestions()" />
+        <div class="ac-list" id="ac-list"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Kommissionsnummer</label>
+        <div style="position:relative;">
+          <input type="text" id="kommission" placeholder="z.B. K-2024-047"
+            autocorrect="off" oninput="kommissionEdited=true" />
+          <span class="autofill-badge" id="autofill-badge">automatisch</span>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="form-group">
+          <label class="form-label">Stunden</label>
+          <input type="number" id="stunden" placeholder="z.B. 4.5" min="0" step="0.5" inputmode="decimal" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kilometer</label>
+          <input type="number" id="km" placeholder="0" min="0" step="1" inputmode="numeric" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notiz (optional)</label>
+        <input type="text" id="notiz" placeholder="z.B. Material geliefert" />
+      </div>
+
+      <button class="btn-save" onclick="saveEntry()">Eintrag speichern</button>
+    </div>
+
+    <!-- ÜBERSICHT -->
+    <div id="sec-uebersicht" class="section">
+      <div class="month-row">
+        <label>Monat</label>
+        <select id="filter-month" onchange="renderOverview()"></select>
+      </div>
+      <div class="metrics" id="metrics"></div>
+      <div class="section-title" id="entries-title"></div>
+      <div id="entries-list"></div>
+    </div>
+
+    <!-- EXPORT -->
+    <div id="sec-export" class="section">
+      <div class="month-row">
+        <label>Monat</label>
+        <select id="export-month" onchange="renderExport()"></select>
+      </div>
+      <div id="export-content"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Tab bar -->
+  <div class="tabbar">
+    <button class="tab-btn active" id="tab-eintrag" onclick="switchTab('eintrag')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>Eintrag</span>
+      <div class="tab-icon-dot"></div>
+    </button>
+    <button class="tab-btn" id="tab-uebersicht" onclick="switchTab('uebersicht')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Übersicht</span>
+      <div class="tab-icon-dot"></div>
+    </button>
+    <button class="tab-btn" id="tab-export" onclick="switchTab('export')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>Export</span>
+      <div class="tab-icon-dot"></div>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const WDAYS = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+// Init date
+const now = new Date();
+document.getElementById('datum').value = now.toISOString().split('T')[0];
+document.getElementById('header-date').textContent =
+  WDAYS[now.getDay()] + ', ' + now.getDate() + '. ' + MONTHS_DE[now.getMonth()] + ' ' + now.getFullYear();
+
+// State
+let entries = JSON.parse(localStorage.getItem('bauzeit_v3') || '[]');
+let baustellen = JSON.parse(localStorage.getItem('bauzeit_baustellen') || '{}');
+let kommissionEdited = false;
+let currentTab = 'eintrag';
+
+function save() {
+  localStorage.setItem('bauzeit_v3', JSON.stringify(entries));
+  localStorage.setItem('bauzeit_baustellen', JSON.stringify(baustellen));
+}
+
+// Toast
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// Autocomplete
+function onBaustelleInput() {
+  kommissionEdited = false;
+  document.getElementById('autofill-badge').style.display = 'none';
+  const q = document.getElementById('baustelle').value.toLowerCase();
+  const matches = Object.keys(baustellen).filter(b => b.toLowerCase().includes(q));
+  const list = document.getElementById('ac-list');
+  if (!matches.length) { list.style.display = 'none'; return; }
+  list.innerHTML = matches.map(b => `
+    <div class="ac-item" onmousedown="selectAC('${b.replace(/'/g,"\\'")}')" ontouchstart="selectAC('${b.replace(/'/g,"\\'")}')">
+      <div class="ac-name">${b}</div>
+      <div class="ac-komm">${baustellen[b]}</div>
+    </div>
+  `).join('');
+  list.style.display = 'block';
+}
+
+function selectAC(name) {
+  document.getElementById('baustelle').value = name;
+  document.getElementById('kommission').value = baustellen[name] || '';
+  document.getElementById('autofill-badge').style.display = baustellen[name] ? 'block' : 'none';
+  kommissionEdited = false;
+  hideSuggestions();
+}
+
+function hideSuggestions() {
+  setTimeout(() => { document.getElementById('ac-list').style.display = 'none'; }, 150);
+}
+
+// Save entry
+function saveEntry() {
+  const datum = document.getElementById('datum').value;
+  const baustelle = document.getElementById('baustelle').value.trim();
+  const kommission = document.getElementById('kommission').value.trim();
+  const stunden = parseFloat(document.getElementById('stunden').value.replace(',', '.')) || 0;
+  const km = parseFloat(document.getElementById('km').value) || 0;
+  const notiz = document.getElementById('notiz').value.trim();
+
+  if (!datum || !baustelle || !kommission || stunden <= 0) {
+    toast('Bitte alle Pflichtfelder ausfüllen');
+    return;
+  }
+
+  baustellen[baustelle] = kommission;
+  entries.push({ id: Date.now(), datum, baustelle, kommission, stunden, km, notiz });
+  entries.sort((a, b) => a.datum.localeCompare(b.datum));
+  save();
+
+  ['baustelle','kommission','stunden','km','notiz'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('autofill-badge').style.display = 'none';
+  kommissionEdited = false;
+  toast('Eintrag gespeichert ✓');
+}
+
+// Months
+function availableMonths() {
+  const set = [...new Set(entries.map(e => e.datum.slice(0,7)))].sort().reverse();
+  return set.length ? set : [now.toISOString().slice(0,7)];
+}
+
+function fillMonthSelect(id) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  const months = availableMonths();
+  sel.innerHTML = months.map(m => {
+    const [y, mo] = m.split('-');
+    return `<option value="${m}">${MONTHS_DE[parseInt(mo)-1]} ${y}</option>`;
+  }).join('');
+  if (cur && months.includes(cur)) sel.value = cur;
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return WDAYS[d.getDay()] + ', ' + d.getDate() + '. ' + MONTHS_DE[d.getMonth()].slice(0,3) + '.';
+}
+
+// Overview
+function renderOverview() {
+  fillMonthSelect('filter-month');
+  const month = document.getElementById('filter-month').value;
+  const filtered = entries.filter(e => e.datum.startsWith(month));
+  const totalH = filtered.reduce((s,e) => s + e.stunden, 0);
+  const totalKm = filtered.reduce((s,e) => s + e.km, 0);
+  const totalB = [...new Set(filtered.map(e => e.baustelle))].length;
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Stunden</div><div class="metric-value">${totalH.toFixed(1)}</div><div class="metric-sub">Std. gesamt</div></div>
+    <div class="metric"><div class="metric-label">Kilometer</div><div class="metric-value">${Math.round(totalKm)}</div><div class="metric-sub">km gesamt</div></div>
+    <div class="metric"><div class="metric-label">Einsätze</div><div class="metric-value">${filtered.length}</div><div class="metric-sub">Einträge</div></div>
+    <div class="metric"><div class="metric-label">Baustellen</div><div class="metric-value">${totalB}</div><div class="metric-sub">verschiedene</div></div>
+  `;
+
+  const title = document.getElementById('entries-title');
+  const list = document.getElementById('entries-list');
+
+  if (!filtered.length) {
+    title.textContent = '';
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>Noch keine Einträge für diesen Monat</div>';
+    return;
+  }
+
+  title.textContent = `${filtered.length} Einträge`;
+  list.innerHTML = filtered.slice().reverse().map(e => `
+    <div class="card">
+      <button class="card-delete" onclick="deleteEntry(${e.id})">×</button>
+      <div class="card-date">${formatDate(e.datum)}</div>
+      <div class="card-baustelle">${e.baustelle}</div>
+      <div class="card-komm">${e.kommission}</div>
+      <div class="card-pills">
+        <span class="pill pill-h">${e.stunden.toFixed(1)} Std.</span>
+        ${e.km > 0 ? `<span class="pill pill-k">${e.km} km</span>` : ''}
+        ${e.notiz ? `<span class="pill">${e.notiz}</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteEntry(id) {
+  if (!confirm('Eintrag löschen?')) return;
+  entries = entries.filter(e => e.id !== id);
+  save();
+  renderOverview();
+}
+
+// Export
+function renderExport() {
+  fillMonthSelect('export-month');
+  const month = document.getElementById('export-month').value;
+  const [y, mo] = month.split('-');
+  const filtered = entries.filter(e => e.datum.startsWith(month));
+  const totalH = filtered.reduce((s,e) => s + e.stunden, 0);
+  const totalKm = filtered.reduce((s,e) => s + e.km, 0);
+  const monthName = MONTHS_DE[parseInt(mo)-1] + ' ' + y;
+
+  const content = document.getElementById('export-content');
+
+  if (!filtered.length) {
+    content.innerHTML = '<div class="empty"><div class="empty-icon">📤</div>Keine Einträge für diesen Monat</div>';
+    return;
+  }
+
+  content.innerHTML = `
+    <div class="export-card">
+      <h3>${monthName}</h3>
+      <p>${filtered.length} Einträge · ${totalH.toFixed(1)} Std. · ${Math.round(totalKm)} km</p>
+      <button class="btn-dl" id="btn-dl-csv">Als Excel-Datei herunterladen</button>
+    </div>
+  `;
+
+  document.getElementById('btn-dl-csv').onclick = () => {
+    const rows = filtered.map(e =>
+      [new Date(e.datum+'T12:00:00').toLocaleDateString('de-DE'),
+       e.baustelle, e.kommission,
+       e.stunden.toFixed(2).replace('.',','),
+       e.km, e.notiz || ''].join(';')
+    ).join('\n');
+    const csv = `Datum;Baustelle;Kommissionsnummer;Stunden;Kilometer;Notiz\n${rows}\n\nGesamt;;;${totalH.toFixed(2).replace('.',',')};${Math.round(totalKm)};`;
+    const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Stundennachweis_${month}.csv`;
+    a.click();
+    toast('Download gestartet');
+  };
+}
+
+// Tab switching
+function switchTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  currentTab = name;
+  if (name === 'uebersicht') renderOverview();
+  if (name === 'export') renderExport();
+}
+
+// Init
+fillMonthSelect('filter-month');
+fillMonthSelect('export-month');
+</script>
+</body>
+</html>
