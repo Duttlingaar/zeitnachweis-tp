@@ -233,6 +233,8 @@
 <div class="toast" id="toast"></div>
 
 <script src="docx.iife.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 const MONTHS_DE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const WDAYS=['So','Mo','Di','Mi','Do','Fr','Sa'];
@@ -376,7 +378,7 @@ function renderExport(){
       <div class="form-group"><label class="form-label">Empfänger – Straße</label><input type="text" id="exp-strasse" placeholder="z.B. Riedstraße 9" /></div>
       <div class="form-group"><label class="form-label">Empfänger – PLZ und Ort</label><input type="text" id="exp-plzort" placeholder="z.B. 79787 Lauchringen" /></div>
       <div class="form-group"><label class="form-label">Rechnungsnummer</label><input type="text" id="exp-rechnr" placeholder="z.B. 03/26" /></div>
-      <button class="btn-save" id="btn-gen" onclick="generateRechnung('${month}')">Rechnung als Word-Datei erstellen</button>
+      <button class="btn-save" id="btn-gen" onclick="generatePDF('${month}')">Rechnung als PDF erstellen</button>
     </div>`;
   // Standard-Empfänger aus Einstellungen vorausfüllen
   if(s['empf-firma'])  document.getElementById('exp-firma').value   = s['empf-firma'];
@@ -568,7 +570,7 @@ async function generateRechnung(month){
     a.click();
     toast('Rechnung erstellt ✓');
   }catch(err){console.error(err);toast('Fehler – Konsole prüfen');}
-  btn.innerHTML='Rechnung als Word-Datei erstellen';btn.disabled=false;
+  btn.innerHTML='Rechnung als PDF erstellen';btn.disabled=false;
 }
 
 // Einstellungen
@@ -596,6 +598,227 @@ function switchTab(name){
 fillMonthSelect('filter-month');
 fillMonthSelect('export-month');
 loadSettings();
+
+// ── PDF Rechnung generieren ────────────────────────────────────────────────────
+async function generatePDF(month) {
+  const btn = document.getElementById('btn-gen');
+  btn.innerHTML = '<span class="spinner"></span>Wird erstellt…';
+  btn.disabled = true;
+
+  try {
+    const [y, mo] = month.split('-');
+    const monthName = MONTHS_DE[parseInt(mo)-1] + ' ' + y;
+    const s = settings;
+
+    const FIRMA    = 'EHS Elektrotechnik und Hausservice';
+    const INHABER  = 'Torsten Pieper';
+    const STRASSE  = 'Sommerhalde 5';
+    const PLZORT   = '79780 Stühlingen';
+    const TELEFON  = '07744 / 92 92 43';
+    const MOBIL    = '0170 / 86 12 955';
+    const STEUERNR = s.steuernr || '';
+    const BANK     = { name: s.bank||'', iban: s.iban||'', bic: s.bic||'' };
+    const STUNDENRATE = parseFloat(s.stundensatz) || 42;
+    const KM_PAUSCH   = parseFloat(s.kmpauschale) || 0.40;
+
+    const empfFirma   = document.getElementById('exp-firma').value.trim()   || '';
+    const empfStrasse = document.getElementById('exp-strasse').value.trim() || '';
+    const empfPlzort  = document.getElementById('exp-plzort').value.trim()  || '';
+    const rechnr      = document.getElementById('exp-rechnr').value.trim()  || '';
+
+    const heute = new Date();
+    const datumHeute = heute.getDate() + '.' + (heute.getMonth()+1) + '.' + heute.getFullYear();
+
+    const filtered = entries.filter(e => e.datum.startsWith(month));
+    filtered.sort((a, b) => {
+      if (a.baustelle !== b.baustelle) return a.baustelle.localeCompare(b.baustelle);
+      const p = d => d.split('.').reverse().join('');
+      return p(a.datum).localeCompare(p(b.datum));
+    });
+
+    const fmt = n => n.toFixed(2).replace('.', ',') + ' €';
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ format: 'a4', unit: 'mm' });
+
+    const PW = 210, PH = 297;
+    const ML = 20, MR = 20, MT = 15;
+    const CW = PW - ML - MR; // 170mm content width
+    let y2 = MT;
+
+    // ── Briefkopf ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(0);
+    const fw = doc.getTextWidth(FIRMA);
+    doc.text(FIRMA, PW/2, y2, { align: 'center' });
+    // Underline
+    doc.setLineWidth(0.4);
+    doc.line(PW/2 - fw/2, y2+0.5, PW/2 + fw/2, y2+0.5);
+    y2 += 5.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(INHABER, PW/2, y2, { align: 'center' });
+    y2 += 4.5;
+    doc.setFontSize(8.5);
+    doc.text(`${STRASSE}  ${PLZORT}  Telefon ${TELEFON}  Mobil ${MOBIL}`, PW/2, y2, { align: 'center' });
+    y2 += 8;
+
+    // ── Absenderzeile ──
+    doc.setFontSize(8);
+    doc.setTextColor(80);
+    const absLine = `${INHABER}, ${STRASSE}, ${PLZORT}`;
+    doc.text(absLine, ML, y2);
+    doc.setLineWidth(0.2);
+    doc.line(ML, y2+0.8, ML + doc.getTextWidth(absLine), y2+0.8);
+    y2 += 7;
+    doc.setTextColor(0);
+
+    // ── Empfänger links + Info rechts ──
+    const infoY = y2;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(empfFirma, ML, y2);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(empfStrasse, ML, y2+5.5);
+    doc.text(empfPlzort,  ML, y2+10.5);
+
+    // Info block right side
+    const infoLeft = ML + CW * 0.42;
+    const infoRight = ML + CW;
+    const infoLines = [
+      [`${PLZORT.split(' ').slice(1).join(' ')}, den`, datumHeute],
+      ['Rechnungsnummer.:', rechnr],
+      ...(STEUERNR ? [['Steuernummer:', STEUERNR]] : []),
+      ...(BANK.name ? [['Smartkonto:', BANK.name]] : []),
+      ...(BANK.iban ? [['IBAN:', BANK.iban]] : []),
+      ...(BANK.bic  ? [['BIC:',  BANK.bic]]  : []),
+    ];
+    doc.setFontSize(9.5);
+    infoLines.forEach(([label, val], i) => {
+      const iy = infoY + i * 5;
+      doc.setFont('helvetica', 'normal');
+      doc.text(label, infoLeft, iy);
+      doc.setFont('helvetica', 'normal');
+      doc.text(val, infoRight, iy, { align: 'right' });
+    });
+
+    y2 = infoY + infoLines.length * 5 + 10;
+
+    // ── Rechnung Titel ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('Rechnung', ML, y2);
+    y2 += 5.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.text('Für ausgeführte Leistungen erlaube ich mir zu berechnen:', ML, y2);
+    y2 += 5;
+
+    // ── Tabelle ──
+    let totStunden = 0, totKmBetrag = 0, totNetto = 0;
+    const tableRows = filtered.map(e => {
+      const sb = e.stunden * STUNDENRATE;
+      const kb = e.km * KM_PAUSCH;
+      const gs = sb + kb;
+      totStunden  += e.stunden;
+      totKmBetrag += kb;
+      totNetto    += gs;
+      const [ey, em, ed] = e.datum.split('-');
+      return [
+        ed+'.'+em+'.'+ey,
+        e.kommission,
+        e.baustelle,
+        String(e.stunden).replace('.',','),
+        fmt(sb),
+        String(e.km),
+        fmt(kb),
+        fmt(gs)
+      ];
+    });
+
+    doc.autoTable({
+      startY: y2,
+      head: [['Datum','Komm.','Kunde / Leistung','Std.',
+        `à ${STUNDENRATE.toFixed(0)},- €`,'km',
+        `à ${KM_PAUSCH.toFixed(2).replace('.',',')} €`,'Betrag']],
+      body: tableRows,
+      foot: [[
+        '','','','',
+        fmt(totStunden * STUNDENRATE),
+        '',
+        fmt(totKmBetrag),
+        fmt(totNetto)
+      ]],
+      margin: { left: ML, right: MR },
+      tableWidth: CW,
+      styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.8, textColor: 0, lineColor: 200, lineWidth: 0.2 },
+      headStyles: { fillColor: [240, 237, 232], textColor: 0, fontStyle: 'bold', halign: 'left' },
+      footStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 14 },
+        2: { cellWidth: 46 },
+        3: { cellWidth: 10, halign: 'right' },
+        4: { cellWidth: 22, halign: 'right' },
+        5: { cellWidth: 10, halign: 'right' },
+        6: { cellWidth: 22, halign: 'right' },
+        7: { cellWidth: 24, halign: 'right' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'foot') data.cell.styles.halign = 'right';
+        if (data.section === 'foot' && (data.column.index === 0 || data.column.index === 1 || data.column.index === 2 || data.column.index === 3 || data.column.index === 5)) {
+          data.cell.styles.fillColor = 255;
+        }
+      }
+    });
+
+    y2 = doc.lastAutoTable.finalY + 8;
+
+    // ── Summenblock ──
+    const sumRight = ML + CW;
+    const sumLeft  = sumRight - 60;
+    doc.setFontSize(9.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text('Netto', sumLeft, y2);
+    doc.text(fmt(totNetto), sumRight, y2, { align: 'right' });
+    y2 += 5;
+
+    doc.text(`MwSt 0,00%`, sumLeft, y2);
+    doc.setLineWidth(0.3);
+    doc.line(sumLeft + 32, y2+0.6, sumRight, y2+0.6); // underline the dash
+    doc.text('- €', sumRight, y2, { align: 'right' });
+    y2 += 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Rechnungsbetrag:', sumLeft, y2);
+    doc.text(fmt(totNetto), sumRight, y2, { align: 'right' });
+    y2 += 12;
+
+    // ── Fußnoten ──
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Nach § 13b geht die Steuerschuldnerschaft auf den Leistungsempfänger über.', ML, y2);
+    y2 += 5;
+    doc.text('Bitte überweisen Sie den Rechnungsbetrag auf das angegebene Konto.', ML, y2);
+
+    // ── Download ──
+    const filename = `Rechnung_${month}_${empfFirma.replace(/\s+/g,'_') || 'Rechnung'}.pdf`;
+    doc.save(filename);
+    toast('PDF erstellt ✓');
+
+  } catch(err) {
+    console.error(err);
+    toast('Fehler – Konsole prüfen');
+  }
+
+  btn.innerHTML = 'Rechnung als PDF erstellen';
+  btn.disabled = false;
+}
+
 </script>
 </body>
 </html>
