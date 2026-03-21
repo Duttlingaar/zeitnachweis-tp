@@ -186,6 +186,13 @@
     <!-- EINSTELLUNGEN -->
     <div id="sec-settings" class="section">
       <div class="settings-section">
+        <div class="settings-title">Steuer &amp; Bankverbindung</div>
+        <div class="form-group"><label class="form-label">Steuernummer</label><input type="text" id="s-steuernr" placeholder="z.B. 12345/67890" inputmode="numeric" /></div>
+        <div class="form-group"><label class="form-label">Bankname</label><input type="text" id="s-bank" placeholder="z.B. Musterbank GmbH" /></div>
+        <div class="form-group"><label class="form-label">IBAN</label><input type="text" id="s-iban" placeholder="z.B. DE12 3456 7890 1234 5678 90" /></div>
+        <div class="form-group"><label class="form-label">BIC</label><input type="text" id="s-bic" placeholder="z.B. MUSTDEFFXXX" /></div>
+      </div>
+      <div class="settings-section">
         <div class="settings-title">Standard-Empfänger</div>
         <div class="form-group"><label class="form-label">Firma</label><input type="text" id="s-empf-firma" placeholder="z.B. Elektro Würth GmbH" /></div>
         <div class="form-group"><label class="form-label">Straße</label><input type="text" id="s-empf-strasse" placeholder="z.B. Riedstraße 9" /></div>
@@ -359,7 +366,7 @@ function renderExport(){
   const monthName=MONTHS_DE[parseInt(mo)-1]+' '+y;
   const content=document.getElementById('export-content');
   if(!filtered.length){content.innerHTML='<div class="empty"><div class="empty-icon">📄</div>Keine Einträge für diesen Monat</div>';return;}
-  const settingsOk=s.firma&&s.inhaber&&s.iban;
+  const settingsOk=s.iban&&s.steuernr&&s.bank;
   content.innerHTML=`
     <div class="export-card">
       <h3>${monthName}</h3>
@@ -384,15 +391,16 @@ async function generateRechnung(month){
   try{
     const[y,mo]=month.split('-');
     const s=settings;
-    // Firmendaten fest hinterlegt
+    // Fest hinterlegt (unkritisch, steht auf jeder Rechnung)
     const FIRMA   ='EHS Elektrotechnik und Hausservice';
     const INHABER ='Torsten Pieper';
     const STRASSE ='Sommerhalde 5';
     const PLZORT  ='79780 Stühlingen';
     const TELEFON ='07744 / 92 92 43';
     const MOBIL   ='0170 / 86 12 955';
-    const STEUERNR='20073/04164';
-    const BANK    ={name:'C24 Bank GmbH',iban:'DE88 5002 4024 3701 2437 01',bic:'DEFFDEFFXXX'};
+    // Sensible Daten aus Einstellungen (localStorage, nicht im Code)
+    const STEUERNR=s.steuernr||'';
+    const BANK    ={name:s.bank||'',iban:s.iban||'',bic:s.bic||''};
     // Anpassbar in Einstellungen
     const STUNDENRATE=parseFloat(s.stundensatz)||42;
     const KM_PAUSCH  =parseFloat(s.kmpauschale)||0.40;
@@ -559,11 +567,11 @@ async function generateRechnung(month){
 
 // Einstellungen
 function loadSettings(){
-  ['stundensatz','kmpauschale','empf-firma','empf-strasse','empf-plzort']
+  ['steuernr','bank','iban','bic','stundensatz','kmpauschale','empf-firma','empf-strasse','empf-plzort']
     .forEach(f=>{const el=document.getElementById('s-'+f);if(el&&settings[f])el.value=settings[f];});
 }
 function saveSettings(){
-  ['stundensatz','kmpauschale','empf-firma','empf-strasse','empf-plzort']
+  ['steuernr','bank','iban','bic','stundensatz','kmpauschale','empf-firma','empf-strasse','empf-plzort']
     .forEach(f=>{const el=document.getElementById('s-'+f);if(el)settings[f]=el.value.trim();});
   localStorage.setItem('bauzeit_settings',JSON.stringify(settings));
   toast('Einstellungen gespeichert ✓');
