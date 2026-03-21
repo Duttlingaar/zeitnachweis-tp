@@ -478,7 +478,7 @@ async function generateRechnung(month){
       totStunden+=e.stunden;totKmBetrag+=kb;totNetto+=gs;
       const bg=i%2===1?'f9f9f9':'FFFFFF';
       return new TableRow({children:[
-        tc(e.datum,                              {width:CW[0],bg,size:18}),
+        tc((d=>{const[y,m,t]=d.split('-');return t+'.'+m+'.'+y;})(e.datum), {width:CW[0],bg,size:18}),
         tc(e.kommission,                         {width:CW[1],bg,size:18}),
         tc(e.baustelle,                          {width:CW[2],bg,size:18}),
         tc(String(e.stunden).replace('.',','),   {width:CW[3],bg,size:18,align:AlignmentType.RIGHT}),
@@ -511,7 +511,7 @@ async function generateRechnung(month){
         new TextRun({text:value,font:'Arial',size:19,bold,
           underline:underline?{type:UnderlineType.SINGLE}:undefined})]});
 
-    const TAB=[{type:TabStopType.RIGHT,position:3500}];
+    const TAB=[{type:TabStopType.RIGHT,position:3800}];
     const infoLine=(label,value)=>new Paragraph({alignment:AlignmentType.LEFT,
       spacing:{before:20,after:20},tabStops:TAB,
       children:[r(label,{size:19}),new TextRun({text:'\t'+value,font:'Arial',size:19})]});
@@ -529,14 +529,14 @@ async function generateRechnung(month){
           sp(16),
           p([r(`${INHABER}, ${STRASSE}, ${PLZORT}`,{size:16,underline:true})],{after:80}),
           sp(4),
-          new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[4200,4200],
+          new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[3800,4600],
             rows:[new TableRow({children:[
-              new TableCell({borders:noBs,width:{size:4200,type:WidthType.DXA},children:[
+              new TableCell({borders:noBs,width:{size:3800,type:WidthType.DXA},children:[
                 p([r(empfFirma,{bold:true,size:22})],{after:40}),
                 p([r(empfStrasse,{size:20})],{after:40}),
                 p([r(empfPlzort,{size:20})]),
               ]}),
-              new TableCell({borders:noBs,width:{size:4200,type:WidthType.DXA},children:[
+              new TableCell({borders:noBs,width:{size:4600,type:WidthType.DXA},children:[
                 infoLine((ortName?ortName+', ':'')+'den',datumHeute),
                 infoLine('Rechnungsnummer.:',rechnr),
                 ...(STEUERNR?[infoLine('Steuernummer:',STEUERNR)]:[]),
