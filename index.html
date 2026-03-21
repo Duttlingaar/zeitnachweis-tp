@@ -186,22 +186,6 @@
     <!-- EINSTELLUNGEN -->
     <div id="sec-settings" class="section">
       <div class="settings-section">
-        <div class="settings-title">Betrieb</div>
-        <div class="form-group"><label class="form-label">Firmenname</label><input type="text" id="s-firma" placeholder="EHS Elektrotechnik und Hausservice" /></div>
-        <div class="form-group"><label class="form-label">Inhaber</label><input type="text" id="s-inhaber" placeholder="Torsten Pieper" /></div>
-        <div class="form-group"><label class="form-label">Straße + Hausnummer</label><input type="text" id="s-strasse" placeholder="Sommerhalde 5" /></div>
-        <div class="form-group"><label class="form-label">PLZ und Ort</label><input type="text" id="s-plzort" placeholder="79780 Stühlingen" /></div>
-        <div class="form-group"><label class="form-label">Telefon</label><input type="text" id="s-telefon" placeholder="07744 / 92 92 43" /></div>
-        <div class="form-group"><label class="form-label">Mobil</label><input type="text" id="s-mobil" placeholder="0170 / 86 12 955" /></div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-title">Steuer &amp; Bankverbindung</div>
-        <div class="form-group"><label class="form-label">Steuernummer</label><input type="text" id="s-steuernr" placeholder="20073/04164" /></div>
-        <div class="form-group"><label class="form-label">Bankname</label><input type="text" id="s-bank" placeholder="C24 Bank GmbH" /></div>
-        <div class="form-group"><label class="form-label">IBAN</label><input type="text" id="s-iban" placeholder="DE88 5002 4024 3701 2437 01" /></div>
-        <div class="form-group"><label class="form-label">BIC</label><input type="text" id="s-bic" placeholder="DEFFDEFFXXX" /></div>
-      </div>
-      <div class="settings-section">
         <div class="settings-title">Standard-Empfänger</div>
         <div class="form-group"><label class="form-label">Firma</label><input type="text" id="s-empf-firma" placeholder="z.B. Elektro Würth GmbH" /></div>
         <div class="form-group"><label class="form-label">Straße</label><input type="text" id="s-empf-strasse" placeholder="z.B. Riedstraße 9" /></div>
@@ -213,7 +197,6 @@
           <div class="form-group"><label class="form-label">Stundensatz (€)</label><input type="number" id="s-stundensatz" placeholder="42" step="0.5" inputmode="decimal" /></div>
           <div class="form-group"><label class="form-label">km-Pauschale (€)</label><input type="number" id="s-kmpauschale" placeholder="0.40" step="0.01" inputmode="decimal" /></div>
         </div>
-        <div class="form-group"><label class="form-label">MwSt. (%)</label><input type="number" id="s-mwst" placeholder="0" step="1" inputmode="numeric" /></div>
       </div>
       <button class="btn-save" onclick="saveSettings()">Einstellungen speichern</button>
     </div>
@@ -401,17 +384,19 @@ async function generateRechnung(month){
   try{
     const[y,mo]=month.split('-');
     const s=settings;
-    const FIRMA   =s.firma   ||'Firmenname';
-    const INHABER =s.inhaber ||'Inhaber';
-    const STRASSE =s.strasse ||'';
-    const PLZORT  =s.plzort  ||'';
-    const TELEFON =s.telefon ||'';
-    const MOBIL   =s.mobil   ||'';
-    const STEUERNR=s.steuernr||'';
-    const BANK    ={name:s.bank||'',iban:s.iban||'',bic:s.bic||''};
+    // Firmendaten fest hinterlegt
+    const FIRMA   ='EHS Elektrotechnik und Hausservice';
+    const INHABER ='Torsten Pieper';
+    const STRASSE ='Sommerhalde 5';
+    const PLZORT  ='79780 Stühlingen';
+    const TELEFON ='07744 / 92 92 43';
+    const MOBIL   ='0170 / 86 12 955';
+    const STEUERNR='20073/04164';
+    const BANK    ={name:'C24 Bank GmbH',iban:'DE88 5002 4024 3701 2437 01',bic:'DEFFDEFFXXX'};
+    // Anpassbar in Einstellungen
     const STUNDENRATE=parseFloat(s.stundensatz)||42;
     const KM_PAUSCH  =parseFloat(s.kmpauschale)||0.40;
-    const MWST_PCT   =parseFloat(s.mwst)||0;
+    const MWST_PCT   =0;
 
     const empfFirma  =document.getElementById('exp-firma').value.trim()||'Empfänger';
     const empfStrasse=document.getElementById('exp-strasse').value.trim()||'';
@@ -459,7 +444,7 @@ async function generateRechnung(month){
           children:[new TextRun({text:String(text),bold,size,color,font:'Arial'})]})]}); };
 
     // Spalten
-    const CW=[1100,700,2300,600,1000,500,900,1300];
+    const CW=[1200,650,2150,600,1200,480,1020,1100];
     const TW=CW.reduce((a,b)=>a+b,0);
     const HDRBG='f0ede8';
     const topLine={style:BorderStyle.SINGLE,size:4,color:'000000'};
@@ -505,13 +490,14 @@ async function generateRechnung(month){
     const mwstBetrag=totNetto*(MWST_PCT/100);
     const rechnungsbetrag=totNetto+mwstBetrag;
 
+    const SUMTAB=[{type:TabStopType.LEFT,position:6200},{type:TabStopType.RIGHT,position:TW}];
     const sumLine=(label,value,bold=false,underline=false)=>new Paragraph({
-      alignment:AlignmentType.RIGHT,spacing:{before:40,after:40},
-      children:[r(label+'   ',{size:19,bold}),
-        new TextRun({text:value,font:'Arial',size:19,bold,
+      alignment:AlignmentType.LEFT,spacing:{before:40,after:40},tabStops:SUMTAB,
+      children:[new TextRun({text:'\t'+label,font:'Arial',size:19,bold}),
+        new TextRun({text:'\t'+value,font:'Arial',size:19,bold,
           underline:underline?{type:UnderlineType.SINGLE}:undefined})]});
 
-    const TAB=[{type:TabStopType.RIGHT,position:3800}];
+    const TAB=[{type:TabStopType.RIGHT,position:4400}];
     const infoLine=(label,value)=>new Paragraph({alignment:AlignmentType.LEFT,
       spacing:{before:20,after:20},tabStops:TAB,
       children:[r(label,{size:19}),new TextRun({text:'\t'+value,font:'Arial',size:19})]});
@@ -574,11 +560,11 @@ async function generateRechnung(month){
 
 // Einstellungen
 function loadSettings(){
-  ['firma','inhaber','strasse','plzort','telefon','mobil','steuernr','bank','iban','bic','stundensatz','kmpauschale','mwst','empf-firma','empf-strasse','empf-plzort']
+  ['stundensatz','kmpauschale','empf-firma','empf-strasse','empf-plzort']
     .forEach(f=>{const el=document.getElementById('s-'+f);if(el&&settings[f])el.value=settings[f];});
 }
 function saveSettings(){
-  ['firma','inhaber','strasse','plzort','telefon','mobil','steuernr','bank','iban','bic','stundensatz','kmpauschale','mwst','empf-firma','empf-strasse','empf-plzort']
+  ['stundensatz','kmpauschale','empf-firma','empf-strasse','empf-plzort']
     .forEach(f=>{const el=document.getElementById('s-'+f);if(el)settings[f]=el.value.trim();});
   localStorage.setItem('bauzeit_settings',JSON.stringify(settings));
   toast('Einstellungen gespeichert ✓');
