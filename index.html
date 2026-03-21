@@ -490,11 +490,10 @@ async function generateRechnung(month){
     const mwstBetrag=totNetto*(MWST_PCT/100);
     const rechnungsbetrag=totNetto+mwstBetrag;
 
-    const SUMTAB=[{type:TabStopType.LEFT,position:6200},{type:TabStopType.RIGHT,position:TW}];
     const sumLine=(label,value,bold=false,underline=false)=>new Paragraph({
-      alignment:AlignmentType.LEFT,spacing:{before:40,after:40},tabStops:SUMTAB,
-      children:[new TextRun({text:'\t'+label,font:'Arial',size:19,bold}),
-        new TextRun({text:'\t'+value,font:'Arial',size:19,bold,
+      alignment:AlignmentType.RIGHT,spacing:{before:40,after:40},
+      children:[new TextRun({text:label+'   ',font:'Arial',size:19,bold}),
+        new TextRun({text:value,font:'Arial',size:19,bold,
           underline:underline?{type:UnderlineType.SINGLE}:undefined})]});
 
     const TAB=[{type:TabStopType.RIGHT,position:4400}];
@@ -540,7 +539,7 @@ async function generateRechnung(month){
           sumLine('Netto',fmt(totNetto)),
           sumLine(`MwSt ${MWST_PCT.toFixed(2).replace('.',',')}%`,mwstBetrag>0?fmt(mwstBetrag):'- \u20AC',false,true),
           sp(4),
-          sumLine('Rechnungsbetrag',fmt(rechnungsbetrag),true),
+          sumLine('Rechnungsbetrag: ',fmt(rechnungsbetrag),true),
           sp(24),
           p([r('Nach \u00A7 13b geht die Steuerschuldnerschaft auf den Leistungsempf\u00E4nger \u00FCber.',{size:18})],{after:80}),
           p([r('Bitte \u00FCberweisen Sie den Rechnungsbetrag auf das angegebene Konto.',{size:18})]),
