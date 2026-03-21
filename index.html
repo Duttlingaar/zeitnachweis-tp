@@ -490,11 +490,10 @@ async function generateRechnung(month){
     const mwstBetrag=totNetto*(MWST_PCT/100);
     const rechnungsbetrag=totNetto+mwstBetrag;
 
-    const RTAB=[{type:TabStopType.RIGHT,position:8200}];
     const sumLine=(label,value,bold=false,underline=false)=>new Paragraph({
-      alignment:AlignmentType.LEFT,spacing:{before:40,after:40},tabStops:RTAB,
-      children:[new TextRun({text:label,font:'Arial',size:19,bold}),
-        new TextRun({text:'\t'+value,font:'Arial',size:19,bold,
+      alignment:AlignmentType.RIGHT,spacing:{before:40,after:40},
+      children:[new TextRun({text:label+'    ',font:'Arial',size:19,bold}),
+        new TextRun({text:value,font:'Arial',size:19,bold,
           underline:underline?{type:UnderlineType.SINGLE}:undefined})]});
 
     const TAB=[{type:TabStopType.RIGHT,position:4400}];
