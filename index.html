@@ -665,27 +665,27 @@ async function generatePDF(month) {
     doc.text(`${STRASSE}  ${PLZORT}  Telefon ${TELEFON}  Mobil ${MOBIL}`, PW/2, y2, { align: 'center' });
     y2 += 8;
 
-    // ── Absenderzeile ──
+    // ── Absenderzeile (DIN 5008: ~40mm vom oberen Rand) ──
+    const ADDR_Y = 40;
     doc.setFontSize(8);
     doc.setTextColor(80);
     const absLine = `${INHABER}, ${STRASSE}, ${PLZORT}`;
-    doc.text(absLine, ML, y2);
+    doc.text(absLine, ML, ADDR_Y);
     doc.setLineWidth(0.2);
-    doc.line(ML, y2+0.8, ML + doc.getTextWidth(absLine), y2+0.8);
-    y2 += 7;
+    doc.line(ML, ADDR_Y+0.8, ML + doc.getTextWidth(absLine), ADDR_Y+0.8);
     doc.setTextColor(0);
 
-    // ── Empfänger links + Info rechts ──
-    const infoY = y2;
+    // ── Empfänger links + Info rechts – beide ab gleicher Höhe (DIN-Fenster ~47mm) ──
+    const BLOCK_Y = 47;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text(empfFirma, ML, y2);
+    doc.text(empfFirma, ML, BLOCK_Y);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(empfStrasse, ML, y2+5.5);
-    doc.text(empfPlzort,  ML, y2+10.5);
+    doc.text(empfStrasse, ML, BLOCK_Y+5.5);
+    doc.text(empfPlzort,  ML, BLOCK_Y+10.5);
 
-    // Info block right side
+    // Info block right side – startet auf gleicher Höhe
     const infoLeft = ML + CW * 0.65;
     const infoRight = ML + CW;
     const infoLines = [
@@ -698,14 +698,13 @@ async function generatePDF(month) {
     ];
     doc.setFontSize(9.5);
     infoLines.forEach(([label, val], i) => {
-      const iy = infoY + i * 5;
+      const iy = BLOCK_Y + i * 5;
       doc.setFont('helvetica', 'normal');
       doc.text(label, infoLeft, iy);
-      doc.setFont('helvetica', 'normal');
       doc.text(val, infoRight, iy, { align: 'right' });
     });
 
-    y2 = infoY + infoLines.length * 5 + 10;
+    y2 = BLOCK_Y + infoLines.length * 5 + 10;
 
     // ── Rechnung Titel ──
     doc.setFont('helvetica', 'bold');
