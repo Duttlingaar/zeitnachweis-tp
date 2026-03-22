@@ -120,7 +120,32 @@
   </script>
 </head>
 <body>
-<div id="app">
+<div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;padding:32px;background:var(--bg);max-width:600px;margin:0 auto;">
+  <div style="margin-bottom:32px;text-align:center;">
+    <h1 style="font-size:26px;font-weight:600;letter-spacing:-0.5px;color:var(--text);">Zeitnachweis</h1>
+    <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">Bitte anmelden um fortzufahren</p>
+  </div>
+  <div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+    <div class="form-group">
+      <label class="form-label">E-Mail</label>
+      <input type="email" id="login-email" placeholder="name@example.com" inputmode="email" autocomplete="email" style="background:#ffffff;color:#1a1a1a;border-color:var(--border-strong);border-radius:var(--radius-sm);font-size:15px;width:100%;box-sizing:border-box;padding:10px 14px;" />
+    </div>
+    <div class="form-group" style="margin-bottom:6px;">
+      <label class="form-label">Passwort</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" style="background:#ffffff;color:#1a1a1a;border-color:var(--border-strong);border-radius:var(--radius-sm);font-size:15px;width:100%;box-sizing:border-box;padding:10px 14px;" />
+    </div>
+    <div id="login-error" style="font-size:13px;margin-bottom:12px;padding:10px 12px;border-radius:var(--radius-sm);display:none;"></div>
+    <button class="btn-save" id="login-btn" onclick="doLogin()" style="margin-top:10px;">Anmelden</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:12px;color:var(--text-faint);">oder</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+    <button id="register-btn" onclick="doRegister()" style="width:100%;padding:14px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;color:var(--text-muted);">Konto erstellen</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
   <div class="header">
     <h1>Zeitnachweis</h1>
     <div class="date" id="header-date"></div>
@@ -206,6 +231,7 @@
         </div>
       </div>
       <button class="btn-save" onclick="saveSettings()">Einstellungen speichern</button>
+      <button class="btn-secondary" onclick="doLogout()" style="margin-top:12px;">Abmelden</button>
     </div>
 
   </div>
@@ -235,7 +261,118 @@
 <script src="docx.iife.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+
+// ── Supabase ───────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://hipxsfaubefhwgkwyptg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhpcHhzZmF1YmVmaHdna3d5cHRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMTU2MTUsImV4cCI6MjA4OTc5MTYxNX0.wa7L8ewjHfOLZtBnUqk3zGXKS6jmpi_Gg_97Rpzg28M';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    showLogin();
+  }
+  sb.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) showApp(); else showLogin();
+  });
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  loadEntriesFromDB();
+}
+
+async function doLogin() {
+  const btn = document.getElementById('login-btn');
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  btn.textContent = 'Wird angemeldet…'; btn.disabled = true;
+  errEl.style.display = 'none';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.style.background='#fef3c7';errEl.style.color='#b45309';
+    errEl.textContent = 'Fehler: ' + (error.message === 'Invalid login credentials' ? 'E-Mail oder Passwort falsch' : error.message);
+    errEl.style.display = 'block';
+  }
+  btn.textContent = 'Anmelden'; btn.disabled = false;
+}
+
+async function doRegister() {
+  const btn = document.getElementById('register-btn');
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  if (!email || !password) { errEl.textContent = 'Bitte E-Mail und Passwort eingeben'; errEl.style.display = 'block'; return; }
+  if (password.length < 6) { errEl.textContent = 'Passwort muss mindestens 6 Zeichen haben'; errEl.style.display = 'block'; return; }
+  btn.textContent = 'Wird erstellt…'; btn.disabled = true;
+  errEl.style.display = 'none';
+  const { error } = await sb.auth.signUp({ email, password });
+  if (error) {
+    errEl.textContent = 'Fehler: ' + error.message;
+    errEl.style.display = 'block';
+  } else {
+    errEl.style.background='var(--green-bg)';errEl.style.color='var(--green-text)';
+    errEl.textContent = 'Konto erstellt! Du kannst dich jetzt anmelden.';
+    errEl.style.display = 'block';
+  }
+  btn.textContent = 'Konto erstellen'; btn.disabled = false;
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  entries = [];
+  toast('Abgemeldet');
+}
+
+// ── DB-Operationen ─────────────────────────────────────────────────────────────
+async function loadEntriesFromDB() {
+  if (!currentUser) return;
+  const { data, error } = await sb.from('eintraege')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('datum', { ascending: true });
+  if (error) { console.error(error); return; }
+  entries = data.map(r => ({
+    id: r.id, datum: r.datum, baustelle: r.baustelle,
+    kommission: r.kommission, stunden: r.stunden, km: r.km, notiz: r.notiz || ''
+  }));
+  fillMonthSelect('filter-month');
+  fillMonthSelect('export-month');
+}
+
+async function saveEntryToDB(entry) {
+  if (!currentUser) return null;
+  const { data, error } = await sb.from('eintraege').insert([{
+    user_id: currentUser.id,
+    datum: entry.datum, baustelle: entry.baustelle,
+    kommission: entry.kommission, stunden: entry.stunden,
+    km: entry.km, notiz: entry.notiz
+  }]).select().single();
+  if (error) { console.error(error); return null; }
+  return data;
+}
+
+async function deleteEntryFromDB(id) {
+  if (!currentUser) return;
+  const { error } = await sb.from('eintraege').delete().eq('id', id).eq('user_id', currentUser.id);
+  if (error) console.error(error);
+}
+
 const MONTHS_DE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const WDAYS=['So','Mo','Di','Mi','Do','Fr','Sa'];
 
@@ -250,7 +387,7 @@ let settings  =JSON.parse(localStorage.getItem('bauzeit_settings')||'{}');
 let kommissionEdited=false;
 
 function persist(){
-  localStorage.setItem('bauzeit_v3',JSON.stringify(entries));
+  // entries are now in Supabase - only save baustellen lookup locally
   localStorage.setItem('bauzeit_baustellen',JSON.stringify(baustellen));
 }
 
@@ -284,7 +421,7 @@ function selectAC(name){
 function hideSuggestions(){setTimeout(()=>{document.getElementById('ac-list').style.display='none';},150);}
 
 // Eintrag speichern
-function saveEntry(){
+async function saveEntry(){
   const datum     =document.getElementById('datum').value;
   const baustelle =document.getElementById('baustelle').value.trim();
   const kommission=document.getElementById('kommission').value.trim();
@@ -292,14 +429,23 @@ function saveEntry(){
   const km        =parseFloat(document.getElementById('km').value)||0;
   const notiz     =document.getElementById('notiz').value.trim();
   if(!datum||!baustelle||!kommission||stunden<=0){toast('Bitte alle Pflichtfelder ausfüllen');return;}
+  const btn=document.querySelector('#sec-eintrag .btn-save');
+  btn.disabled=true; btn.textContent='Wird gespeichert…';
   baustellen[baustelle]=kommission;
-  entries.push({id:Date.now(),datum,baustelle,kommission,stunden,km,notiz});
-  entries.sort((a,b)=>a.datum.localeCompare(b.datum));
-  persist();
-  ['baustelle','kommission','stunden','km','notiz'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('autofill-badge').style.display='none';
-  kommissionEdited=false;
-  toast('Eintrag gespeichert ✓');
+  const entry={datum,baustelle,kommission,stunden,km,notiz};
+  const saved=await saveEntryToDB(entry);
+  if(saved){
+    entries.push({id:saved.id,datum,baustelle,kommission,stunden,km,notiz});
+    entries.sort((a,b)=>a.datum.localeCompare(b.datum));
+    persist();
+    ['baustelle','kommission','stunden','km','notiz'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('autofill-badge').style.display='none';
+    kommissionEdited=false;
+    toast('Eintrag gespeichert ✓');
+  } else {
+    toast('Fehler beim Speichern');
+  }
+  btn.disabled=false; btn.textContent='Eintrag speichern';
 }
 
 function availableMonths(){
@@ -348,9 +494,11 @@ function renderOverview(){
       </div>
     </div>`).join('');
 }
-function deleteEntry(id){
+async function deleteEntry(id){
   if(!confirm('Eintrag löschen?'))return;
-  entries=entries.filter(e=>e.id!==id);persist();renderOverview();
+  await deleteEntryFromDB(id);
+  entries=entries.filter(e=>e.id!==id);
+  renderOverview();
 }
 
 // Rechnung-Tab
@@ -598,6 +746,7 @@ function switchTab(name){
 fillMonthSelect('filter-month');
 fillMonthSelect('export-month');
 loadSettings();
+initAuth();
 
 // ── PDF Rechnung generieren ────────────────────────────────────────────────────
 async function generatePDF(month) {
