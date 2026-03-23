@@ -819,7 +819,7 @@ async function generatePDF(month) {
     y2 += 8;
 
     // ── Absenderzeile (DIN 5008: ~40mm vom oberen Rand) ──
-    const ADDR_Y = 40;
+    const ADDR_Y = 50;
     doc.setFontSize(8);
     doc.setTextColor(80);
     const absLine = `${INHABER}, ${STRASSE}, ${PLZORT}`;
@@ -829,7 +829,7 @@ async function generatePDF(month) {
     doc.setTextColor(0);
 
     // ── Empfänger links + Info rechts – beide ab gleicher Höhe (DIN-Fenster ~47mm) ──
-    const BLOCK_Y = 47;
+    const BLOCK_Y = 57;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.text(empfFirma, ML, BLOCK_Y);
