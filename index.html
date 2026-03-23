@@ -829,8 +829,8 @@ async function generatePDF(month) {
     doc.setTextColor(0);
 
     // ── Empfänger links + Info rechts – beide ab gleicher Höhe (DIN-Fenster ~47mm) ──
-    const BLOCK_Y = 57;
-    doc.setFont('helvetica', 'bold');
+    const BLOCK_Y = 63;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     doc.text(empfFirma, ML, BLOCK_Y);
     doc.setFont('helvetica', 'normal');
