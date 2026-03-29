@@ -97,6 +97,12 @@
     /* Toast */
     .toast{position:fixed;bottom:calc(var(--tab-h) + var(--safe-bottom) + 16px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 20px;border-radius:20px;font-size:14px;font-weight:500;opacity:0;transition:opacity 0.25s;pointer-events:none;white-space:nowrap;z-index:999;}
     .toast.show{opacity:1;}
+    /* Swipe to delete */
+    .swipe-wrapper{position:relative;overflow:hidden;border-radius:var(--radius);margin-bottom:10px;}
+    .swipe-delete-bg{position:absolute;right:0;top:0;bottom:0;width:80px;background:#e24b4a;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);}
+    .swipe-delete-bg svg{color:white;}
+    .card{margin-bottom:0;border-radius:var(--radius);transition:transform 0.15s ease;touch-action:pan-y;position:relative;z-index:1;}
+    .card.swiping{transition:none;}
     /* Spinner */
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--accent-text);border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:8px;}
     @keyframes spin{to{transform:rotate(360deg);}}
@@ -486,17 +492,23 @@ function renderOverview(){
   document.getElementById('entries-title').textContent=filtered.length?`${filtered.length} Einträge`:'';
   if(!filtered.length){list.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Noch keine Einträge für diesen Monat</div>';return;}
   list.innerHTML=filtered.slice().reverse().map(e=>`
-    <div class="card">
-      <button class="card-delete" onclick="deleteEntry(${e.id})">×</button>
-      <div class="card-date">${formatDate(e.datum)}</div>
-      <div class="card-baustelle">${e.baustelle}</div>
-      <div class="card-komm">${e.kommission}</div>
-      <div class="card-pills">
-        <span class="pill pill-h">${e.stunden.toFixed(1)} Std.</span>
-        ${e.km>0?`<span class="pill pill-k">${e.km} km</span>`:''}
-        ${e.notiz?`<span class="pill">${e.notiz}</span>`:''}
+    <div class="swipe-wrapper" id="wrap-${e.id}">
+      <div class="swipe-delete-bg">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </div>
+      <div class="card" id="card-${e.id}" ontouchstart="swipeStart(event,${e.id})" ontouchmove="swipeMove(event,${e.id})" ontouchend="swipeEnd(event,${e.id})">
+        <button class="card-delete" onclick="deleteEntry(${e.id})">×</button>
+        <div class="card-date">${formatDate(e.datum)}</div>
+        <div class="card-baustelle">${e.baustelle}</div>
+        <div class="card-komm">${e.kommission}</div>
+        <div class="card-pills">
+          <span class="pill pill-h">${e.stunden.toFixed(1)} Std.</span>
+          ${e.km>0?`<span class="pill pill-k">${e.km} km</span>`:''}
+          ${e.notiz?`<span class="pill">${e.notiz}</span>`:''}
+        </div>
       </div>
     </div>`).join('');
+  initSwipe();
 }
 async function deleteEntry(id){
   if(!confirm('Eintrag löschen?'))return;
@@ -521,11 +533,56 @@ function renderExport(){
   const content=document.getElementById('export-content');
   if(!filtered.length){content.innerHTML='<div class="empty"><div class="empty-icon">📄</div>Keine Einträge für diesen Monat</div>';return;}
   const settingsOk=s.iban&&s.steuernr&&s.bank;
+
+  // Einträge gruppiert nach Baustelle für Vorschau
+  const gruppen={};
+  filtered.forEach(e=>{
+    if(!gruppen[e.baustelle])gruppen[e.baustelle]={stunden:0,km:0,eintraege:[]};
+    gruppen[e.baustelle].stunden+=e.stunden;
+    gruppen[e.baustelle].km+=e.km;
+    gruppen[e.baustelle].eintraege.push(e);
+  });
+  const gruppenHTML=Object.entries(gruppen).map(([name,g])=>`
+    <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:15px;font-weight:600;color:var(--text);">${name}</span>
+        <span style="font-size:15px;font-weight:600;color:var(--text);">${g.stunden.toFixed(1)} Std.</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:3px;">
+        <span style="font-size:13px;color:var(--text-muted);font-family:'DM Mono',monospace;">${g.eintraege.length} Einsatz${g.eintraege.length!==1?'e':''}</span>
+        <span style="font-size:13px;color:var(--text-muted);">${g.km} km</span>
+      </div>
+    </div>`).join('');
+
+  const fmt2=n=>n.toFixed(2).replace('.',',');
+
   content.innerHTML=`
+    <div class="export-card" style="margin-bottom:12px;">
+      <div style="font-size:17px;font-weight:600;margin-bottom:2px;">Rechnung</div>
+      <div style="font-size:14px;color:var(--text-muted);margin-bottom:12px;">${monthName}</div>
+      <div style="border-top:1px solid var(--border);">
+        ${gruppenHTML}
+      </div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text-muted);">
+          <span>Stunden gesamt</span><span style="color:var(--text);">${totalH.toFixed(1)} Std.</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text-muted);">
+          <span>km gesamt</span><span style="color:var(--text);">${Math.round(totalKm)} km</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text-muted);">
+          <span>Stundensatz</span><span style="color:var(--text);">${stundensatz} € × ${totalH.toFixed(1)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text-muted);">
+          <span>km-Pauschale</span><span style="color:var(--text);">${kmpauschale.toFixed(2)} € × ${Math.round(totalKm)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:600;color:var(--text);padding-top:8px;border-top:1px solid var(--border);margin-top:2px;">
+          <span>Gesamtbetrag</span><span>${fmt2(netto)} €</span>
+        </div>
+      </div>
+    </div>
     <div class="export-card">
-      <h3>${monthName}</h3>
-      <div class="subtitle">${filtered.length} Einträge · ${totalH.toFixed(1)} Std. · ${Math.round(totalKm)} km · <strong>${netto.toFixed(2).replace('.',',')} €</strong></div>
-      ${!settingsOk?'<div class="warn">⚠ Bitte zuerst die Einstellungen ausfüllen (Firmenname, Inhaber, IBAN).</div>':''}
+      ${!settingsOk?'<div class="warn" style="margin-bottom:12px;">⚠ Bitte zuerst die Einstellungen ausfüllen (IBAN, Steuernummer, Bank).</div>':''}
       <div class="form-group"><label class="form-label">Empfänger – Firma</label><input type="text" id="exp-firma" placeholder="z.B. Elektro Würth GmbH" /></div>
       <div class="form-group"><label class="form-label">Empfänger – Straße</label><input type="text" id="exp-strasse" placeholder="z.B. Riedstraße 9" /></div>
       <div class="form-group"><label class="form-label">Empfänger – PLZ und Ort</label><input type="text" id="exp-plzort" placeholder="z.B. 79787 Lauchringen" /></div>
@@ -751,6 +808,74 @@ fillMonthSelect('filter-month');
 fillMonthSelect('export-month');
 loadSettings();
 initAuth();
+
+// ── Swipe to delete ────────────────────────────────────────────────────────────
+const swipeState = {};
+
+function initSwipe() {
+  // Close all open swipes when tapping outside
+  document.addEventListener('touchstart', e => {
+    Object.keys(swipeState).forEach(id => {
+      if (swipeState[id].open && !e.target.closest(`#wrap-${id}`)) {
+        resetSwipe(id);
+      }
+    });
+  }, { passive: true });
+}
+
+function swipeStart(e, id) {
+  const touch = e.touches[0];
+  swipeState[id] = { startX: touch.clientX, startY: touch.clientY, dx: 0, open: false };
+  const card = document.getElementById('card-' + id);
+  if (card) card.classList.add('swiping');
+}
+
+function swipeMove(e, id) {
+  const st = swipeState[id];
+  if (!st) return;
+  const touch = e.touches[0];
+  const dx = touch.clientX - st.startX;
+  const dy = touch.clientY - st.startY;
+  // Only horizontal swipe
+  if (Math.abs(dy) > Math.abs(dx) && !st.started) return;
+  st.started = true;
+  st.dx = Math.min(0, dx); // only left
+  const card = document.getElementById('card-' + id);
+  if (card) card.style.transform = `translateX(${st.dx}px)`;
+}
+
+function swipeEnd(e, id) {
+  const st = swipeState[id];
+  if (!st || !st.started) return;
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  card.classList.remove('swiping');
+
+  if (st.dx < -120) {
+    // Long swipe – delete directly
+    card.style.transform = 'translateX(-100%)';
+    card.style.transition = 'transform 0.25s ease';
+    card.style.opacity = '0';
+    setTimeout(() => deleteEntry(id), 250);
+  } else if (st.dx < -60) {
+    // Short swipe – show delete button
+    card.style.transform = 'translateX(-80px)';
+    card.style.transition = 'transform 0.2s ease';
+    swipeState[id].open = true;
+  } else {
+    resetSwipe(id);
+  }
+}
+
+function resetSwipe(id) {
+  const card = document.getElementById('card-' + id);
+  if (card) {
+    card.style.transition = 'transform 0.2s ease';
+    card.style.transform = 'translateX(0)';
+  }
+  if (swipeState[id]) swipeState[id].open = false;
+}
+
 
 // ── PDF Rechnung generieren ────────────────────────────────────────────────────
 async function generatePDF(month) {
