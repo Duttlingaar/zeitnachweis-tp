@@ -99,7 +99,7 @@
     .toast.show{opacity:1;}
     /* Swipe to delete */
     .swipe-wrapper{position:relative;overflow:hidden;border-radius:var(--radius);margin-bottom:10px;} .swipe-delete-bg svg{pointer-events:none;}
-    .swipe-delete-bg{position:absolute;right:-84px;top:0;bottom:0;width:76px;background:#e24b4a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:0 var(--radius) var(--radius) 0;cursor:pointer;font-size:11px;font-weight:600;color:white;font-family:"DM Sans",sans-serif;transition:right 0.0s;}
+    .swipe-delete-bg{position:absolute;right:-84px;top:0;bottom:0;width:76px;background:#e24b4a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:var(--radius);cursor:pointer;font-size:11px;font-weight:600;color:white;font-family:"DM Sans",sans-serif;transition:right 0.0s;}
     .swipe-delete-bg svg{color:white;}
     .card{margin-bottom:0;border-radius:var(--radius);transition:transform 0.15s ease;touch-action:pan-y;position:relative;z-index:1;}
     .card.swiping{transition:none;}
@@ -512,7 +512,13 @@ function renderOverview(){
   initSwipe();
 }
 async function deleteEntry(id){
-  if(!confirm('Eintrag löschen?'))return;
+  if(!confirm('Eintrag löschen?')){
+    // User cancelled - reset visual state
+    resetSwipe(id);
+    const card = document.getElementById('card-' + id);
+    if(card){ card.style.opacity='1'; card.style.transform='translateX(0)'; }
+    return;
+  }
   await deleteEntryFromDB(id);
   entries=entries.filter(e=>e.id!==id);
   renderOverview();
